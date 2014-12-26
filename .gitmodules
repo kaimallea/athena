@@ -1,0 +1,7 @@
+[submodule "hl2sdk-csgo"]
+	path = hl2sdk-csgo
+	url = git@github.com:alliedmodders/hl2sdk.git
+	branch = csgo
+[submodule "metamod-source"]
+	path = metamod-source
+	url = git@github.com:alliedmodders/metamod-source.git

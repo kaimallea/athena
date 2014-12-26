@@ -1,0 +1,5 @@
+"Metamod Plugin"
+{
+	"alias"		"athena"
+	"file"		"addons/athena_mm"
+}
