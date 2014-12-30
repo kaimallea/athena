@@ -3,6 +3,7 @@
  */
 
 #include <stdio.h>
+#include <stdarg.h>
 #include "athena_mm.h"
 
 SH_DECL_HOOK6(IServerGameDLL, LevelInit, SH_NOATTRIB, 0, bool, char const *, char const *, char const *, char const *, bool, bool);
@@ -230,13 +231,68 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 	{
 		int userid = pEvent->GetInt("userid");
 		const char *text = pEvent->GetString("text");
-		if (stricmp(text, ".ready") == 0)
+
+		IPlayerInfo *playerinfo = NULL;
+
+		if (strcmp(text, ".ready") == 0)
 		{
-			META_CONPRINTF("%s: Player (%d) is ready.\n", GetLogTag(), userid);
+			if ( (playerinfo = GetPlayerInfoByUserId(userid)) )
+			{
+				MessageAllPlayers("%s: %s is now ready.", GetLogTag(), playerinfo->GetName());
+			}
+		}
+		else if (strcmp(text, ".notready") == 0)
+		{
+			if ( (playerinfo = GetPlayerInfoByUserId(userid)) )
+			{
+				MessageAllPlayers("%s: %s is NOT ready.", GetLogTag(), playerinfo->GetName());
+			}
 		}
 	}
 
 	RETURN_META_VALUE(MRES_IGNORED, true);
+}
+
+
+IPlayerInfo* AthenaPlugin::GetPlayerInfoByUserId(int userid)
+{
+	IPlayerInfo *playerinfo = NULL;
+
+	for (int i = 1; i <= gpGlobals->maxClients; i++)
+	{
+		edict_t *pPlayer = (edict_t *)(gpGlobals->pEdicts + i);
+
+		if (!pPlayer || pPlayer->IsFree())
+			continue;
+
+		playerinfo = playerinfomanager->GetPlayerInfo(pPlayer);
+
+		if (!playerinfo)
+			continue;
+
+		if (userid == playerinfo->GetUserID())
+			return playerinfo;
+	}
+
+	return NULL;
+}
+
+
+void AthenaPlugin::MessageAllPlayers(const char *format, ...)
+{
+	char message[256];
+	va_list args;
+	va_start(args, format);
+	vsnprintf(message, sizeof(message), format, args);
+	va_end(args);
+
+	CCSUsrMsg_SayText *pMsg = (CCSUsrMsg_SayText *)g_Cstrike15UsermessageHelpers.GetPrototype(CS_UM_SayText)->New();
+	MRecipientFilter f;
+	f.AddAllPlayers();
+	pMsg->set_text(message);
+	pMsg->set_chat(true);
+	engine->SendUserMessage(f, CS_UM_SayText, *pMsg);
+	delete pMsg;
 }
 
 bool AthenaPlugin::Pause(char *error, size_t maxlen)

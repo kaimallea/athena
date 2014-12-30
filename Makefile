@@ -15,7 +15,7 @@ MMSOURCE19 = metamod-source
 #####################################
 
 PROJECT = athena_mm
-OBJECTS = athena_mm.cpp
+OBJECTS = athena_mm.cpp MRecipientFilter.cpp
 
 ##############################################
 ### CONFIGURE ANY OTHER FLAGS/OPTIONS HERE ###
@@ -117,8 +117,13 @@ ifeq "$(ENGINE)" "csgo"
 	LINK += $(HL2LIB)/interfaces_i486.a
 endif
 
+LINK += $(HL2SDK)/lib/linux32/release/libprotobuf.a
+
 INCLUDE += -I. -I.. -I$(HL2PUB) -I$(HL2PUB)/engine -I$(HL2PUB)/mathlib -I$(HL2PUB)/vstdlib \
 	-I$(HL2PUB)/tier0 -I$(HL2PUB)/tier1 -I. -I$(METAMOD) -I$(METAMOD)/sourcehook
+
+INCLUDE += -I$(HL2SDK)/common/protobuf-2.5.0/src -I$(HL2PUB)/engine/protobuf \
+	-I$(HL2PUB)/game/shared/csgo/protobuf -I$(HL2SDK)/game/shared -I$(HL2SDK)/game/server
 
 ################################################
 ### DO NOT EDIT BELOW HERE FOR MOST PROJECTS ###
@@ -158,7 +163,7 @@ endif
 CFLAGS += -DPOSIX -Dstricmp=strcasecmp -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
 	-Dstrnicmp=strncasecmp -D_snprintf=snprintf -D_vsnprintf=vsnprintf -D_alloca=alloca \
 	-Dstrcmpi=strcasecmp -DCOMPILER_GCC -Wall -Wno-non-virtual-dtor -Wno-overloaded-virtual \
-	-Werror -fPIC -fno-exceptions -fno-rtti -msse -m32 -fno-strict-aliasing
+	-Werror -fPIC -fno-exceptions -msse -m32 -fno-strict-aliasing
 
 # Clang || GCC >= 4
 ifeq "$(shell expr $(IS_CLANG) \| $(CPP_MAJOR) \>= 4)" "1"
@@ -176,6 +181,8 @@ ifeq "$(shell expr $(OS) \= Linux \& $(IS_CLANG) \= 0)" "1"
 endif
 
 OBJ_BIN := $(OBJECTS:%.cpp=$(BIN_DIR)/%.o)
+EXTRA_OBJ := $(BIN_DIR)/cstrike15_usermessage_helpers.o $(BIN_DIR)/cstrike15_usermessages.pb.o \
+	$(BIN_DIR)/netmessages.pb.o
 
 $(BIN_DIR)/%.o: %.cpp
 	$(CPP) $(INCLUDE) $(CFLAGS) -o $@ -c $<
@@ -184,6 +191,9 @@ all: check
 	mkdir -p $(BIN_DIR)
 	ln -sf $(HL2LIB)/$(LIB_PREFIX)vstdlib$(LIB_SUFFIX)
 	ln -sf $(HL2LIB)/$(LIB_PREFIX)tier0$(LIB_SUFFIX)
+	test -s $(BIN_DIR)/cstrike15_usermessage_helpers.o || $(CPP) $(INCLUDE) $(CFLAGS) -o $(BIN_DIR)/cstrike15_usermessage_helpers.o -c $(HL2PUB)/game/shared/csgo/protobuf/cstrike15_usermessage_helpers.cpp
+	test -s $(BIN_DIR)/cstrike15_usermessages.pb.o || $(CPP) $(INCLUDE) $(CFLAGS) -o $(BIN_DIR)/cstrike15_usermessages.pb.o -c $(HL2PUB)/game/shared/csgo/protobuf/cstrike15_usermessages.pb.cc
+	test -s $(BIN_DIR)/netmessages.pb.o || $(CPP) $(INCLUDE) $(CFLAGS) -o $(BIN_DIR)/netmessages.pb.o -c $(HL2PUB)/engine/protobuf/netmessages.pb.cc
 	$(MAKE) -f Makefile athena_mm
 
 check:
@@ -194,7 +204,7 @@ check:
 	fi
 
 athena_mm: check $(OBJ_BIN)
-	$(CPP) $(INCLUDE) -m32 $(OBJ_BIN) $(LINK) -ldl -lm -o $(BIN_DIR)/$(BINARY)
+	$(CPP) $(INCLUDE) -m32 $(EXTRA_OBJ) $(OBJ_BIN) $(LINK) -ldl -lm -o $(BIN_DIR)/$(BINARY)
 
 default: all
 
