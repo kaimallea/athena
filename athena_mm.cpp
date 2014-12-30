@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include "athena_mm.h"
 
+
 SH_DECL_HOOK6(IServerGameDLL, LevelInit, SH_NOATTRIB, 0, bool, char const *, char const *, char const *, char const *, bool, bool);
 SH_DECL_HOOK3_void(IServerGameDLL, ServerActivate, SH_NOATTRIB, 0, edict_t *, int, int);
 SH_DECL_HOOK1_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool);
@@ -231,9 +232,7 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 	{
 		int userid = pEvent->GetInt("userid");
 		const char *text = pEvent->GetString("text");
-
 		IPlayerInfo *playerinfo = NULL;
-
 		if (strcmp(text, ".ready") == 0)
 		{
 			if ( (playerinfo = GetPlayerInfoByUserId(userid)) )
@@ -248,6 +247,15 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 				MessageAllPlayers("%s: %s is NOT ready.", GetLogTag(), playerinfo->GetName());
 			}
 		}
+
+	}
+	
+	if (strcmp(name, "player_death") == 0)
+	{
+		int userid   = pEvent->GetInt("userid");
+		int attacker = pEvent->GetInt("attacker");
+		const char *weapon = pEvent->GetString("weapon");
+		META_CONPRINTF("%s: Player(%d) was killed by Player(%d) with a %s.\n", GetLogTag(), userid, attacker, weapon);
 	}
 
 	RETURN_META_VALUE(MRES_IGNORED, true);
