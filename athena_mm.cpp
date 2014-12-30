@@ -17,12 +17,8 @@ SH_DECL_HOOK1_void(IServerGameClients, ClientSettingsChanged, SH_NOATTRIB, 0, ed
 SH_DECL_HOOK5(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool, edict_t *, const char*, const char *, char *, int);
 SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent *, bool);
 
-#if SOURCE_ENGINE >= SE_ORANGEBOX
 SH_DECL_HOOK2_void(IServerGameClients, NetworkIDValidated, SH_NOATTRIB, 0, const char *, const char *);
 SH_DECL_HOOK2_void(IServerGameClients, ClientCommand, SH_NOATTRIB, 0, edict_t *, const CCommand &);
-#else
-SH_DECL_HOOK1_void(IServerGameClients, ClientCommand, SH_NOATTRIB, 0, edict_t *);
-#endif
 
 MatchState g_MatchState = WARMUP;
 AthenaPlugin g_AthenaPlugin;
@@ -96,12 +92,8 @@ bool AthenaPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 	ENGINE_CALL(LogPrint)("All hooks started!\n");
 
-#if SOURCE_ENGINE >= SE_ORANGEBOX
 	g_pCVar = icvar;
 	ConVar_Register(0, &s_BaseAccessor);
-#else
-	ConCommandBaseMgr::OneTimeInit(&s_BaseAccessor);
-#endif
 
 	return true;
 }
@@ -146,16 +138,8 @@ void AthenaPlugin::Hook_ClientActive(edict_t *pEntity, bool bLoadGame)
 	META_LOG(g_PLAPI, "Hook_ClientActive(%d, %d)", IndexOfEdict(pEntity), bLoadGame);
 }
 
-#if SOURCE_ENGINE >= SE_ORANGEBOX
 void AthenaPlugin::Hook_ClientCommand(edict_t *pEntity, const CCommand &args)
-#else
-void AthenaPlugin::Hook_ClientCommand(edict_t *pEntity)
-#endif
 {
-#if SOURCE_ENGINE <= SE_DARKMESSIAH
-	CCommand args;
-#endif
-
 	if (!pEntity || pEntity->IsFree())
 	{
 		return;

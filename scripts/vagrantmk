@@ -1,0 +1,8 @@
+#!/usr/bin/sh
+# A small step simplification of compiling with Vagrant.
+
+vagrant ssh << _EOF_
+cd /vagrant
+make
+exit
+_EOF_
