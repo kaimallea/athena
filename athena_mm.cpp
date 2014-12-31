@@ -6,7 +6,6 @@
 #include <stdarg.h>
 #include "athena_mm.h"
 
-
 SH_DECL_HOOK6(IServerGameDLL, LevelInit, SH_NOATTRIB, 0, bool, char const *, char const *, char const *, char const *, bool, bool);
 SH_DECL_HOOK3_void(IServerGameDLL, ServerActivate, SH_NOATTRIB, 0, edict_t *, int, int);
 SH_DECL_HOOK1_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool);
@@ -16,11 +15,10 @@ SH_DECL_HOOK1_void(IServerGameClients, ClientDisconnect, SH_NOATTRIB, 0, edict_t
 SH_DECL_HOOK2_void(IServerGameClients, ClientPutInServer, SH_NOATTRIB, 0, edict_t *, char const *);
 SH_DECL_HOOK1_void(IServerGameClients, SetCommandClient, SH_NOATTRIB, 0, int);
 SH_DECL_HOOK1_void(IServerGameClients, ClientSettingsChanged, SH_NOATTRIB, 0, edict_t *);
-SH_DECL_HOOK5(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool, edict_t *, const char*, const char *, char *, int);
-SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent *, bool);
-
 SH_DECL_HOOK2_void(IServerGameClients, NetworkIDValidated, SH_NOATTRIB, 0, const char *, const char *);
 SH_DECL_HOOK2_void(IServerGameClients, ClientCommand, SH_NOATTRIB, 0, edict_t *, const CCommand &);
+SH_DECL_HOOK5(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool, edict_t *, const char*, const char *, char *, int);
+SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent *, bool);
 
 MatchState g_MatchState = WARMUP;
 AthenaPlugin g_AthenaPlugin;
@@ -33,6 +31,8 @@ IServerPluginCallbacks *vsp_callbacks = NULL;
 IPlayerInfoManager *playerinfomanager = NULL;
 ICvar *icvar = NULL;
 CGlobalVars *gpGlobals = NULL;
+
+UserMessageHelper *usermessagehelper = NULL;
 
 ConVar sample_cvar("sample_cvar", "42", 0);
 
@@ -73,11 +73,7 @@ bool AthenaPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 		ismm->EnableVSPListener();
 	}
 
-	/* Player chat is not emitted by default, so we need to add a listener for it */
-	if (gameevents)
-	{
-		gameevents->AddListener(this, "player_say", true);
-	}
+	usermessagehelper = new UserMessageHelper;
 
 	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, LevelInit, server, this, &AthenaPlugin::Hook_LevelInit, true);
 	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, ServerActivate, server, this, &AthenaPlugin::Hook_ServerActivate, true);
@@ -102,6 +98,9 @@ bool AthenaPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 
 bool AthenaPlugin::Unload(char *error, size_t maxlen)
 {
+	if (gameevents)
+		gameevents->RemoveListener(this);
+
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, LevelInit, server, this, &AthenaPlugin::Hook_LevelInit, true);
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, ServerActivate, server, this, &AthenaPlugin::Hook_ServerActivate, true);
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &AthenaPlugin::Hook_GameFrame, true);
@@ -114,6 +113,9 @@ bool AthenaPlugin::Unload(char *error, size_t maxlen)
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientConnect, gameclients, this, &AthenaPlugin::Hook_ClientConnect, false);
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientCommand, gameclients, this, &AthenaPlugin::Hook_ClientCommand, false);
 	SH_REMOVE_HOOK_MEMFUNC(IGameEventManager2, FireEvent, gameevents, this, &AthenaPlugin::Hook_FireEvent, false);
+
+	if (usermessagehelper)
+		delete usermessagehelper;
 
 	return true;
 }
@@ -133,6 +135,10 @@ void AthenaPlugin::AllPluginsLoaded()
 	/* This is where we'd do stuff that relies on the mod or other plugins
 	 * being initialized (for example, cvars added and events registered).
 	 */
+
+	/* Player chat is not emitted by default, so we need to add a listener for it */
+	if (gameevents)
+		gameevents->AddListener(this, "player_say", true);
 }
 
 void AthenaPlugin::Hook_ClientActive(edict_t *pEntity, bool bLoadGame)
@@ -227,30 +233,43 @@ void AthenaPlugin::Hook_SetCommandClient(int index)
 
 bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 {
-	const char *name = pEvent->GetName();
-	if (strcmp(name, "player_say") == 0)
+	const char *eventName = pEvent->GetName();
+
+	if (strcmp(eventName, "player_say") == 0)
 	{
 		int userid = pEvent->GetInt("userid");
 		const char *text = pEvent->GetString("text");
-		IPlayerInfo *playerinfo = NULL;
+		IPlayerInfo *playerinfo = GetPlayerInfoByUserId(userid);
+
+		if (playerinfo)
+		{
 		if (strcmp(text, ".ready") == 0)
 		{
-			if ( (playerinfo = GetPlayerInfoByUserId(userid)) )
-			{
-				MessageAllPlayers("%s: %s is now ready.", GetLogTag(), playerinfo->GetName());
-			}
+			usermessagehelper->PrintToChatAll(
+				"[%s%s%s]: %s is now %sready.",
+				PURPLE,
+				GetLogTag(),
+				WHITE,
+				playerinfo->GetName(),
+				GREEN
+			);
 		}
 		else if (strcmp(text, ".notready") == 0)
 		{
-			if ( (playerinfo = GetPlayerInfoByUserId(userid)) )
-			{
-				MessageAllPlayers("%s: %s is NOT ready.", GetLogTag(), playerinfo->GetName());
-			}
+			usermessagehelper->PrintToChatAll(
+				"[%s%s%s]: %s is %sNOT %sready.",
+				PURPLE,
+				GetLogTag(),
+				WHITE,
+				playerinfo->GetName(),
+				RED,
+				WHITE
+			);
 		}
-
+		}
 	}
-	
-	if (strcmp(name, "player_death") == 0)
+
+	if (strcmp(eventName, "player_death") == 0)
 	{
 		int userid   = pEvent->GetInt("userid");
 		int attacker = pEvent->GetInt("attacker");
@@ -283,24 +302,6 @@ IPlayerInfo* AthenaPlugin::GetPlayerInfoByUserId(int userid)
 	}
 
 	return NULL;
-}
-
-
-void AthenaPlugin::MessageAllPlayers(const char *format, ...)
-{
-	char message[256];
-	va_list args;
-	va_start(args, format);
-	vsnprintf(message, sizeof(message), format, args);
-	va_end(args);
-
-	CCSUsrMsg_SayText *pMsg = (CCSUsrMsg_SayText *)g_Cstrike15UsermessageHelpers.GetPrototype(CS_UM_SayText)->New();
-	MRecipientFilter f;
-	f.AddAllPlayers();
-	pMsg->set_text(message);
-	pMsg->set_chat(true);
-	engine->SendUserMessage(f, CS_UM_SayText, *pMsg);
-	delete pMsg;
 }
 
 bool AthenaPlugin::Pause(char *error, size_t maxlen)

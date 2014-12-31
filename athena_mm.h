@@ -10,8 +10,7 @@
 #include <iplayerinfo.h>
 #include <sh_vector.h>
 #include "engine_wrappers.h"
-#include <cstrike15_usermessage_helpers.h>
-#include "MRecipientFilter.h"
+#include "UserMessageHelper.h"
 
 #if defined WIN32 && !defined snprintf
 #define snprintf _snprintf
@@ -66,7 +65,6 @@ public: //hooks
 	bool Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast);
 	void FireGameEvent(IGameEvent *pEvent) {};
 	int GetEventDebugID(void) { return 42; }
-	void MessageAllPlayers(const char *format, ...);
 	IPlayerInfo* GetPlayerInfoByUserId(int userid);
 public:
 	const char *GetAuthor();
