@@ -1,6 +1,6 @@
 #include "FSM.h"
 
-STATE FSM::GetCurrentState(void)
+STATE FSM::GetState(void)
 {
     return state;
 }

@@ -31,6 +31,7 @@ IPlayerInfoManager *playerinfomanager = NULL;
 ICvar *icvar = NULL;
 CGlobalVars *gpGlobals = NULL;
 
+FSM *fsm = NULL;
 UserMessageHelper *usermessagehelper = NULL;
 ServerController *servercontroller = NULL;
 
@@ -72,6 +73,7 @@ bool AthenaPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 		ismm->EnableVSPListener();
 	}
 
+	fsm = new FSM;
 	usermessagehelper = new UserMessageHelper;
 	servercontroller = new ServerController;
 
@@ -101,6 +103,15 @@ bool AthenaPlugin::Unload(char *error, size_t maxlen)
 	if (gameevents)
 		gameevents->RemoveListener(this);
 
+	if (usermessagehelper)
+		delete usermessagehelper;
+
+	if (fsm)
+		delete fsm;
+
+	if (servercontroller)
+		delete servercontroller;
+
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, LevelInit, server, this, &AthenaPlugin::Hook_LevelInit, true);
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, ServerActivate, server, this, &AthenaPlugin::Hook_ServerActivate, true);
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &AthenaPlugin::Hook_GameFrame, true);
@@ -113,12 +124,6 @@ bool AthenaPlugin::Unload(char *error, size_t maxlen)
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientConnect, gameclients, this, &AthenaPlugin::Hook_ClientConnect, false);
 	SH_REMOVE_HOOK_MEMFUNC(IServerGameClients, ClientCommand, gameclients, this, &AthenaPlugin::Hook_ClientCommand, false);
 	SH_REMOVE_HOOK_MEMFUNC(IGameEventManager2, FireEvent, gameevents, this, &AthenaPlugin::Hook_FireEvent, false);
-
-	if (usermessagehelper)
-		delete usermessagehelper;
-
-	if (servercontroller)
-		delete servercontroller;
 
 	return true;
 }
@@ -237,6 +242,75 @@ void AthenaPlugin::Hook_SetCommandClient(int index)
 bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 {
 	const char *eventName = pEvent->GetName();
+	STATE currentState = fsm->GetState();
+
+	if (ST_READY_UP == currentState)
+	{
+		if (strcmp(eventName, "player_say") == 0)
+		{
+			int userid = pEvent->GetInt("userid");
+			const char *text = pEvent->GetString("text");
+			IPlayerInfo *playerinfo = GetPlayerInfoByUserId(userid);
+
+			if (strcmp(text, ".ready") == 0)
+			{
+				usermessagehelper->PrintToChatAll(
+					"[%s%s%s]: %s is now %sready.",
+					PURPLE,
+					GetLogTag(),
+					WHITE,
+					playerinfo->GetName(),
+					GREEN
+				);
+			}
+			else if (strcmp(text, ".notready") == 0)
+			{
+				usermessagehelper->PrintToChatAll(
+					"[%s%s%s]: %s is %sNOT %sready.",
+					PURPLE,
+					GetLogTag(),
+					WHITE,
+					playerinfo->GetName(),
+					RED,
+					WHITE
+				);
+			}
+			else if (strncmp(text, ".name ", 6) == 0 && strlen(text) > 6)
+			{
+				char team_name[32];
+				snprintf( team_name, sizeof(team_name), "%s", &text[6] );
+
+				servercontroller->SetTeamName( playerinfo->GetTeamIndex(), (const char *)team_name );
+				usermessagehelper->PrintToChatAll(
+					"[%s%s%s]: %s changed team name to \"%s%s%s\".",
+					PURPLE,
+					GetLogTag(),
+					WHITE,
+					playerinfo->GetName(),
+					GREEN,
+					team_name,
+					WHITE
+				);
+			}
+			else if (strncmp(text, ".flag ", 6) == 0 && strlen(text) > 6)
+			{
+				char team_flag[32];
+				snprintf( team_flag, sizeof(team_flag), "%s", &text[6] );
+
+				servercontroller->SetTeamFlag( playerinfo->GetTeamIndex(), (const char *)team_flag );
+				usermessagehelper->PrintToChatAll(
+					"[%s%s%s]: %s changed team flag to \"%s%s%s\".",
+					PURPLE,
+					GetLogTag(),
+					WHITE,
+					playerinfo->GetName(),
+					GREEN,
+					team_flag,
+					WHITE
+				);
+			}
+		}
+	}
 
 	if (strcmp(eventName, "player_say") == 0)
 	{
@@ -244,30 +318,7 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 		const char *text = pEvent->GetString("text");
 		IPlayerInfo *playerinfo = GetPlayerInfoByUserId(userid);
 
-		if (strcmp(text, ".ready") == 0)
-		{
-			usermessagehelper->PrintToChatAll(
-				"[%s%s%s]: %s is now %sready.",
-				PURPLE,
-				GetLogTag(),
-				WHITE,
-				playerinfo->GetName(),
-				GREEN
-			);
-		}
-		else if (strcmp(text, ".notready") == 0)
-		{
-			usermessagehelper->PrintToChatAll(
-				"[%s%s%s]: %s is %sNOT %sready.",
-				PURPLE,
-				GetLogTag(),
-				WHITE,
-				playerinfo->GetName(),
-				RED,
-				WHITE
-			);
-		}
-		else if (strcmp(text, ".pause") == 0)
+		if (strcmp(text, ".pause") == 0)
 		{
 			usermessagehelper->PrintToChatAll(
 				"[%s%s%s]: %s %striggered a pause at next freeze time.",
@@ -292,40 +343,7 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 			);
 			servercontroller->UnpauseMatch();
 		}
-		else if (strncmp(text, ".name ", 6) == 0 && strlen(text) > 6)
-		{
-			char team_name[32];
-			snprintf( team_name, sizeof(team_name), "%s", &text[6] );
 
-			servercontroller->SetTeamName( playerinfo->GetTeamIndex(), (const char *)team_name );
-			usermessagehelper->PrintToChatAll(
-				"[%s%s%s]: %s changed team name to \"%s%s%s\".",
-				PURPLE,
-				GetLogTag(),
-				WHITE,
-				playerinfo->GetName(),
-				GREEN,
-				team_name,
-				WHITE
-			);
-		}
-		else if (strncmp(text, ".flag ", 6) == 0 && strlen(text) > 6)
-		{
-			char team_flag[32];
-			snprintf( team_flag, sizeof(team_flag), "%s", &text[6] );
-
-			servercontroller->SetTeamFlag( playerinfo->GetTeamIndex(), (const char *)team_flag );
-			usermessagehelper->PrintToChatAll(
-				"[%s%s%s]: %s changed team flag to \"%s%s%s\".",
-				PURPLE,
-				GetLogTag(),
-				WHITE,
-				playerinfo->GetName(),
-				GREEN,
-				team_flag,
-				WHITE
-			);
-		}
 	}
 
 	if (strcmp(eventName, "player_death") == 0)

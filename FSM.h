@@ -28,7 +28,7 @@ class FSM
 public:
     FSM() : state(ST_READY_UP) {}
     void Transition(EVENT e);
-    STATE GetCurrentState(void);
+    STATE GetState(void);
 };
 
 
