@@ -20,7 +20,6 @@ SH_DECL_HOOK2_void(IServerGameClients, ClientCommand, SH_NOATTRIB, 0, edict_t *,
 SH_DECL_HOOK5(IServerGameClients, ClientConnect, SH_NOATTRIB, 0, bool, edict_t *, const char*, const char *, char *, int);
 SH_DECL_HOOK2(IGameEventManager2, FireEvent, SH_NOATTRIB, 0, bool, IGameEvent *, bool);
 
-MatchState g_MatchState = WARMUP;
 AthenaPlugin g_AthenaPlugin;
 IServerGameDLL *server = NULL;
 IServerGameClients *gameclients = NULL;
@@ -33,8 +32,8 @@ ICvar *icvar = NULL;
 CGlobalVars *gpGlobals = NULL;
 
 UserMessageHelper *usermessagehelper = NULL;
+ServerController *servercontroller = NULL;
 
-ConVar sample_cvar("sample_cvar", "42", 0);
 
 /**
  * Something like this is needed to register cvars/CON_COMMANDs.
@@ -74,6 +73,7 @@ bool AthenaPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 	}
 
 	usermessagehelper = new UserMessageHelper;
+	servercontroller = new ServerController;
 
 	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, LevelInit, server, this, &AthenaPlugin::Hook_LevelInit, true);
 	SH_ADD_HOOK_MEMFUNC(IServerGameDLL, ServerActivate, server, this, &AthenaPlugin::Hook_ServerActivate, true);
@@ -116,6 +116,9 @@ bool AthenaPlugin::Unload(char *error, size_t maxlen)
 
 	if (usermessagehelper)
 		delete usermessagehelper;
+
+	if (servercontroller)
+		delete servercontroller;
 
 	return true;
 }
@@ -241,8 +244,6 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 		const char *text = pEvent->GetString("text");
 		IPlayerInfo *playerinfo = GetPlayerInfoByUserId(userid);
 
-		if (playerinfo)
-		{
 		if (strcmp(text, ".ready") == 0)
 		{
 			usermessagehelper->PrintToChatAll(
@@ -266,6 +267,64 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 				WHITE
 			);
 		}
+		else if (strcmp(text, ".pause") == 0)
+		{
+			usermessagehelper->PrintToChatAll(
+				"[%s%s%s]: %s %striggered a pause at next freeze time.",
+				PURPLE,
+				GetLogTag(),
+				WHITE,
+				playerinfo->GetName(),
+				RED
+			);
+			servercontroller->PauseMatch();
+		}
+		else if (strcmp(text, ".unpause") == 0)
+		{
+			usermessagehelper->PrintToChatAll(
+				"[%s%s%s]: %sMatch unpaused by %s%s",
+				PURPLE,
+				GetLogTag(),
+				WHITE,
+				GREEN,
+				YELLOW,
+				playerinfo->GetName()
+			);
+			servercontroller->UnpauseMatch();
+		}
+		else if (strncmp(text, ".name ", 6) == 0 && strlen(text) > 6)
+		{
+			char team_name[32];
+			snprintf( team_name, sizeof(team_name), "%s", &text[6] );
+
+			servercontroller->SetTeamName( playerinfo->GetTeamIndex(), (const char *)team_name );
+			usermessagehelper->PrintToChatAll(
+				"[%s%s%s]: %s changed team name to \"%s%s%s\".",
+				PURPLE,
+				GetLogTag(),
+				WHITE,
+				playerinfo->GetName(),
+				GREEN,
+				team_name,
+				WHITE
+			);
+		}
+		else if (strncmp(text, ".flag ", 6) == 0 && strlen(text) > 6)
+		{
+			char team_flag[32];
+			snprintf( team_flag, sizeof(team_flag), "%s", &text[6] );
+
+			servercontroller->SetTeamFlag( playerinfo->GetTeamIndex(), (const char *)team_flag );
+			usermessagehelper->PrintToChatAll(
+				"[%s%s%s]: %s changed team flag to \"%s%s%s\".",
+				PURPLE,
+				GetLogTag(),
+				WHITE,
+				playerinfo->GetName(),
+				GREEN,
+				team_flag,
+				WHITE
+			);
 		}
 	}
 

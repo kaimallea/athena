@@ -15,7 +15,8 @@ MMSOURCE19 = metamod-source
 #####################################
 
 PROJECT = athena_mm
-OBJECTS = athena_mm.cpp MRecipientFilter.cpp UserMessageHelper.cpp
+OBJECTS = athena_mm.cpp MRecipientFilter.cpp UserMessageHelper.cpp \
+	ServerController.cpp FSM.cpp
 
 ##############################################
 ### CONFIGURE ANY OTHER FLAGS/OPTIONS HERE ###

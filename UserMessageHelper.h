@@ -27,6 +27,7 @@ public:
     void PrintToChatAll(const char *format, ...);
     void PrintToChat(int userid, const char *format, ...);
     void PrintToChat(edict_t *pPlayer, const char *format, ...);
+    void PrintToHudAll(const char *format, ...);
 };
 
 #endif

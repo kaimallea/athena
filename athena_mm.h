@@ -11,21 +11,12 @@
 #include <sh_vector.h>
 #include "engine_wrappers.h"
 #include "UserMessageHelper.h"
+#include "FSM.h"
+#include "ServerController.h"
 
 #if defined WIN32 && !defined snprintf
 #define snprintf _snprintf
 #endif
-
-enum MatchState
-{
-	WARMUP,
-	FIRST_HALF,
-	HALFTIME,
-	SECOND_HALF,
-	OVERTIME,
-	FINAL
-};
-
 
 class AthenaPlugin : public ISmmPlugin, public IMetamodListener, IGameEventListener2
 {

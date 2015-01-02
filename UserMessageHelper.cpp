@@ -63,3 +63,19 @@ void UserMessageHelper::PrintToChat(edict_t *pPlayer, const char *format, ...)
     engine->SendUserMessage(f, CS_UM_SayText, *pMsg);
     delete pMsg;
 }
+
+void UserMessageHelper::PrintToHudAll(const char *format, ...)
+{
+    char message[MAX_MESSAGE_LENGTH];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(message, sizeof(message), format, args);
+    va_end(args);
+
+    CCSUsrMsg_HudText *pMsg = (CCSUsrMsg_HudText *)g_Cstrike15UsermessageHelpers.GetPrototype(CS_UM_HudText)->New();
+    MRecipientFilter f;
+    f.AddAllPlayers();
+    pMsg->set_text(message);
+    engine->SendUserMessage(f, CS_UM_HudText, *pMsg);
+    delete pMsg;
+}
