@@ -252,6 +252,9 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 			const char *text = pEvent->GetString("text");
 			IPlayerInfo *playerinfo = GetPlayerInfoByUserId(userid);
 
+			if ( playerinfo->IsObserver() || playerinfo->IsFakeClient() )
+				RETURN_META_VALUE(MRES_IGNORED, true);
+
 			if (strcmp(text, ".ready") == 0)
 			{
 				usermessagehelper->PrintToChatAll(
