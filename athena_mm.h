@@ -11,8 +11,8 @@
 #include <sh_vector.h>
 #include "engine_wrappers.h"
 #include "UserMessageHelper.h"
-#include "FSM.h"
 #include "ServerController.h"
+#include "Match.hpp"
 
 #if defined WIN32 && !defined snprintf
 #define snprintf _snprintf

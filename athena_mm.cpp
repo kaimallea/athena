@@ -31,7 +31,7 @@ IPlayerInfoManager *playerinfomanager = NULL;
 ICvar *icvar = NULL;
 CGlobalVars *gpGlobals = NULL;
 
-FSM *fsm = NULL;
+Match *match = NULL;
 UserMessageHelper *usermessagehelper = NULL;
 ServerController *servercontroller = NULL;
 
@@ -73,7 +73,7 @@ bool AthenaPlugin::Load(PluginId id, ISmmAPI *ismm, char *error, size_t maxlen, 
 		ismm->EnableVSPListener();
 	}
 
-	fsm = new FSM;
+	match = new Match;
 	usermessagehelper = new UserMessageHelper;
 	servercontroller = new ServerController;
 
@@ -106,8 +106,8 @@ bool AthenaPlugin::Unload(char *error, size_t maxlen)
 	if (usermessagehelper)
 		delete usermessagehelper;
 
-	if (fsm)
-		delete fsm;
+	if (match)
+		delete match;
 
 	if (servercontroller)
 		delete servercontroller;
@@ -241,9 +241,9 @@ void AthenaPlugin::Hook_SetCommandClient(int index)
 
 bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 {
+	match->HandleEvent(pEvent);
+/*
 	const char *eventName = pEvent->GetName();
-	STATE currentState = fsm->GetState();
-
 	if (ST_READY_UP == currentState)
 	{
 		if (strcmp(eventName, "player_say") == 0)
@@ -356,7 +356,7 @@ bool AthenaPlugin::Hook_FireEvent(IGameEvent *pEvent, bool bDontBroadcast)
 		const char *weapon = pEvent->GetString("weapon");
 		META_CONPRINTF("%s: Player(%d) was killed by Player(%d) with a %s.\n", GetLogTag(), userid, attacker, weapon);
 	}
-
+*/
 	RETURN_META_VALUE(MRES_IGNORED, true);
 }
 
